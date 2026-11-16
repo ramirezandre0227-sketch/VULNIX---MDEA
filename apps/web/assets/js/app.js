@@ -27,6 +27,60 @@ const ROUTES = [
 
 const root = document.getElementById('app');
 
+// ------------------------------------------------------------------ tema (Liquid Glass claro por defecto)
+const THEME_KEY = 'vulnix.theme';
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+function themePref() {
+  try { return localStorage.getItem(THEME_KEY) || 'light'; } catch { return 'light'; }
+}
+function applyTheme(pref = themePref()) {
+  const dark = pref === 'dark' || (pref === 'system' && darkQuery.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+}
+applyTheme();
+darkQuery.addEventListener('change', () => applyTheme());
+
+// Botón flotante único (fijo en pantalla, fuera de #app para sobrevivir a cada render):
+// cada clic rota Claro → Oscuro → Sistema.
+const THEMES = {
+  light: { label: 'Claro', next: 'dark', icon: [['circle', { cx: 12, cy: 12, r: 4 }], ['path', { d: 'M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4' }]] },
+  dark: { label: 'Oscuro', next: 'system', icon: [['path', { d: 'M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z' }]] },
+  system: { label: 'Sistema', next: 'light', icon: [['rect', { x: 3, y: 4, width: 18, height: 12, rx: 2 }], ['path', { d: 'M8 20h8M12 16v4' }]] },
+};
+function svgIcon(shapes) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: 22, height: 22, fill: 'none', stroke: 'currentColor',
+    'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' })) svg.setAttribute(k, String(v));
+  for (const [tag, attrs] of shapes) {
+    const el = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+    svg.appendChild(el);
+  }
+  return svg;
+}
+function mountThemeFab() {
+  const btn = h('button', { type: 'button', class: 'theme-fab', onClick: () => {
+    const value = (THEMES[themePref()] ?? THEMES.light).next;
+    try { localStorage.setItem(THEME_KEY, value); } catch { /* almacenamiento bloqueado: solo esta sesión */ }
+    applyTheme(value);
+    render();
+  } });
+  const render = () => {
+    const pref = THEMES[themePref()] ? themePref() : 'light';
+    const t = THEMES[pref];
+    const text = `Tema: ${t.label}. Cambiar a ${THEMES[t.next].label}`;
+    btn.dataset.mode = pref;
+    btn.dataset.label = t.label;
+    btn.setAttribute('aria-label', text);
+    btn.title = text;
+    clear(btn).appendChild(svgIcon(t.icon));
+  };
+  render();
+  document.body.appendChild(btn);
+}
+mountThemeFab();
+
 export function every(ms, fn) {
   const id = setInterval(fn, ms);
   state.timers.add(id);
@@ -41,6 +95,8 @@ function layout(active, content) {
   return h('div', { class: 'shell' },
     h('aside', { class: 'sidebar' },
       h('div', { class: 'brand' }, h('img', { src: '/assets/favicon.svg', alt: '' }), h('div', {}, 'VULNIX', h('small', {}, 'Gate DevSecOps local'))),
+      h('div', { class: 'me' }, h('strong', {}, u.display_name), h('span', {}, `${u.username} · ${u.role_label}`),
+        h('button', { class: 'btn small', onClick: logout }, 'Cerrar sesión')),
       h('nav', { class: 'nav', 'aria-label': 'Principal' },
         link('#/', 'dashboard', 'Panel'),
         link('#/projects', 'projects', 'Proyectos'),
@@ -50,9 +106,7 @@ function layout(active, content) {
         link('#/policies', 'policies', 'Políticas'),
         can('audit.view') ? link('#/audit', 'audit', 'Auditoría') : null,
         can('users.manage') ? link('#/users', 'users', 'Usuarios') : null,
-        (can('system.view') || can('projects.view_all')) ? link('#/system', 'system', 'Sistema') : null),
-      h('div', { class: 'me' }, h('strong', {}, u.display_name), h('span', {}, `${u.username} · ${u.role_label}`), h('div', {},
-        h('button', { class: 'btn small', style: null, onClick: logout }, 'Cerrar sesión')))),
+        (can('system.view') || can('projects.view_all')) ? link('#/system', 'system', 'Sistema') : null)),
     h('main', { class: 'main', id: 'main' }, content));
 }
 

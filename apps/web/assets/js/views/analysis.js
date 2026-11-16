@@ -98,7 +98,7 @@ export async function renderAnalysis(id) {
   } }, text);
 
   const actions = h('div', { class: 'actions' },
-    a.decision ? act('Descargar autorización (.jws)', () => api.download(`/analyses/${id}/decision/token`, `vulnix-authorization-${id}.jws`)) : null,
+    a.decision ? act('Descargar autorización (.jws)', () => api.download(`/analyses/${id}/decision/token`, `vulnix-authorization-${id}.jws`), 'btn secondary') : null,
     ...['pdf', 'html', 'sarif', 'json'].map((f) => act(f.toUpperCase(), async () => {
       const sha = await api.download(`/analyses/${id}/report?format=${f}`, `vulnix-${id}.${f === 'sarif' ? 'sarif' : f}`);
       toast(`Reporte ${f.toUpperCase()} descargado · SHA-256 ${short(sha, 16)}`);
