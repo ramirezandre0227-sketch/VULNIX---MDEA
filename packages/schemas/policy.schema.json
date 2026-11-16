@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vulnix.local/schemas/policy.schema.json",
+  "title": "Política VULNIX (fuente YAML)",
+  "description": "Validada en App\\Services\\Policy\\PolicyLoader. fail_closed debe ser true.",
+  "type": "object",
+  "required": ["policy", "version", "required", "analyzers", "fail_closed"],
+  "additionalProperties": false,
+  "properties": {
+    "policy": { "type": "string", "pattern": "^[a-z0-9-]{3,64}$" },
+    "version": { "type": ["string", "number"] },
+    "description": { "type": "string", "maxLength": 500 },
+    "required": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["sast", "sca", "secrets", "quality", "dast"] } },
+    "analyzers": {
+      "type": "object",
+      "propertyNames": { "enum": ["sast", "sca", "secrets", "quality", "dast"] },
+      "additionalProperties": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-z0-9-]{2,64}$" } }
+    },
+    "optional_analyzers": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]{2,64}$" } },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_confirmed_critical": { "type": "integer", "minimum": 0 },
+        "max_confirmed_high": { "type": "integer", "minimum": 0 },
+        "block_exposed_secrets": { "type": "boolean" },
+        "review_uncertain_findings": { "type": "boolean" }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "require_build_pass": { "type": "boolean" },
+        "require_tests_pass": { "type": "boolean" },
+        "min_line_coverage": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "intelligence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "max_age_days": { "type": "integer", "minimum": 1, "maximum": 365 } }
+    },
+    "fail_closed": { "const": true }
+  }
+}

@@ -1,0 +1,25 @@
+# VULNIX · Política de desarrollo / pre-producción.
+# Controles estáticos completos (SAST, SCA, secretos y verificación sintáctica) sin DAST ni ejecución
+# de pruebas, que requieren un sandbox de ejecución aislado (VM desechable, manual §8).
+policy: web-development
+version: 1.0
+description: Gate de integración continua para entornos no productivos. Sin DAST ni pruebas ejecutadas.
+required: [sast, sca, secrets, quality]
+analyzers:
+  sast: [vulnix-sast]
+  sca: [vulnix-sca]
+  secrets: [vulnix-secrets]
+  quality: [vulnix-quality]
+optional_analyzers: [semgrep, gitleaks]
+security:
+  max_confirmed_critical: 0
+  max_confirmed_high: 0
+  block_exposed_secrets: true
+  review_uncertain_findings: true
+quality:
+  require_build_pass: true
+  require_tests_pass: false
+  min_line_coverage: 0
+intelligence:
+  max_age_days: 7
+fail_closed: true

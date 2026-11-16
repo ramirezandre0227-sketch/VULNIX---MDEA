@@ -1,0 +1,22 @@
+# Secretos y configuración local (NUNCA versionar)
+.env
+apps/api/.env
+*.key
+*.vxb
+
+# Datos de ejecución (deben vivir fuera de carpetas sincronizadas: %USERPROFILE%\.vulnix-local)
+var/
+apps/api/storage/app/keys/
+
+# Dependencias y artefactos de construcción
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+apps/api/vendor/
+apps/api/node_modules/
+apps/api/storage/logs/*.log
+apps/api/storage/framework/testing/
+
+# El corpus de pruebas contiene ficheros .env con secretos FICTICIOS que los tests necesitan
+!tests/corpus/**/.env

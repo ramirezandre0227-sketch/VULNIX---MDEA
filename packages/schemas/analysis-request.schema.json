@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vulnix.local/schemas/analysis-request.schema.json",
+  "title": "POST /api/v1/analyses",
+  "type": "object",
+  "required": ["project_version_id"],
+  "additionalProperties": false,
+  "properties": {
+    "project_version_id": { "type": "string", "format": "uuid" },
+    "profile": { "type": "string", "pattern": "^[a-z0-9-]{3,64}$", "examples": ["web-production-strict", "web-development"] },
+    "dynamic_testing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "target_url": { "type": "string", "format": "uri", "description": "Debe estar en VULNIX_DAST_ALLOWED_TARGETS (laboratorio autorizado)." }
+      }
+    }
+  }
+}

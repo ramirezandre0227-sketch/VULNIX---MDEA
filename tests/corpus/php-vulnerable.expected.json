@@ -1,0 +1,22 @@
+{
+  "description": "PHP con vulnerabilidades conocidas. Cada entrada debe detectarse (clase + fichero + línea).",
+  "expected": [
+    {"class": "sqli", "file": "src/user.php", "line": 6},
+    {"class": "sqli", "file": "src/user.php", "line": 7},
+    {"class": "xss", "file": "src/user.php", "line": 10},
+    {"class": "cmdi", "file": "src/user.php", "line": 13},
+    {"class": "lfi", "file": "src/user.php", "line": 16},
+    {"class": "deserialization", "file": "src/user.php", "line": 18},
+    {"class": "path-traversal", "file": "src/user.php", "line": 21},
+    {"class": "weak-crypto", "file": "src/user.php", "line": 23},
+    {"class": "xss", "file": "views/search.php", "line": 3},
+    {"class": "integrity", "file": "views/search.php", "line": 4},
+    {"class": "tabnabbing", "file": "views/search.php", "line": 5},
+    {"class": "sqli", "file": "app/Http/Controllers/ReportController.php", "line": 13},
+    {"class": "secret", "file": "config/settings.php", "line": 3},
+    {"class": "secret", "file": "config/settings.php", "line": 4},
+    {"class": "secret", "file": "config/settings.php", "line": 5},
+    {"class": "secret", "file": ".env", "line": 2},
+    {"class": "secret", "file": ".env", "line": 3}
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "description": "Node/Express + DOM con vulnerabilidades conocidas.",
+  "expected": [
+    {"class": "cmdi", "file": "server.js", "line": 7},
+    {"class": "sqli", "file": "server.js", "line": 11},
+    {"class": "path-traversal", "file": "server.js", "line": 16},
+    {"class": "open-redirect", "file": "server.js", "line": 20},
+    {"class": "code-injection", "file": "server.js", "line": 24},
+    {"class": "tls", "file": "server.js", "line": 27},
+    {"class": "xss", "file": "public/app.js", "line": 3},
+    {"class": "xss", "file": "public/app.js", "line": 5},
+    {"class": "weak-crypto", "file": "public/app.js", "line": 6},
+    {"class": "postmessage", "file": "public/app.js", "line": 7},
+    {"class": "secret", "file": "public/app.js", "line": 8},
+    {"class": "integrity", "file": "public/index.html", "line": 3},
+    {"class": "transport", "file": "public/index.html", "line": 4},
+    {"class": "tabnabbing", "file": "public/index.html", "line": 6},
+    {"class": "transport", "file": "public/index.html", "line": 7}
+  ]
+}

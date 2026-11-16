@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vulnix.local/schemas/deploy-authorization.schema.json",
+  "title": "Claims de la autorización de despliegue (payload del JWS EdDSA)",
+  "description": "Cabecera JWS: {\"alg\":\"EdDSA\",\"typ\":\"vulnix-deploy-authz+jwt\",\"kid\":<16 hex de sha256(clave pública)>}. Firma Ed25519 sobre base64url(header).base64url(payload).",
+  "type": "object",
+  "required": ["iss", "sub", "jti", "iat", "exp", "issuer", "analysis_id", "artifact_sha256", "policy_sha256", "result", "issued_at", "expires_at"],
+  "properties": {
+    "iss": { "type": "string" },
+    "sub": { "type": "string", "format": "uuid" },
+    "jti": { "type": "string", "format": "uuid" },
+    "iat": { "type": "integer" },
+    "exp": { "type": "integer" },
+    "issuer": { "type": "string" },
+    "decision_id": { "type": "string", "format": "uuid" },
+    "analysis_id": { "type": "string", "format": "uuid" },
+    "project_id": { "type": "string", "format": "uuid" },
+    "project_version": { "type": "string" },
+    "artifact_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "policy_code": { "type": "string" },
+    "policy_version": { "type": "string" },
+    "policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "result": { "enum": ["APPROVED", "REJECTED", "REVIEW_REQUIRED", "INCONCLUSIVE"] },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,169 @@
+openapi: 3.1.0
+info:
+  title: VULNIX API
+  version: 1.0.0
+  description: |
+    API REST local de VULNIX (manual §6). Autenticación por sesión (frontend del mismo origen, con CSRF)
+    o token Bearer (pipelines). Errores con códigos estables: `{"error": {"code", "message", "details"}}`.
+    Códigos frecuentes: UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, RATE_LIMITED,
+    ZIP_PATH_TRAVERSAL, ZIP_SPECIAL_ENTRY, ZIP_BOMB_SUSPECTED, VERSION_EXISTS, PROFILE_NOT_ACTIVE,
+    ANALYSIS_NOT_READY, DAST_TARGET_NOT_AUTHORIZED, SIGNING_KEY_MISSING, POLICY_INVALID, IMMUTABLE_RECORD.
+servers:
+  - url: http://127.0.0.1:8000/api/v1
+security:
+  - bearer: []
+  - session: []
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+    session: { type: apiKey, in: cookie, name: vulnix_session }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties: { code: { type: string }, message: { type: string }, details: { type: object } }
+    Finding: { $ref: "./finding.schema.json" }
+    AnalysisRequest: { $ref: "./analysis-request.schema.json" }
+    Decision:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        result: { enum: [APPROVED, REJECTED, REVIEW_REQUIRED, INCONCLUSIVE] }
+        reasons:
+          type: array
+          items:
+            type: object
+            properties:
+              outcome: { enum: [INCONCLUSIVE, REVIEW_REQUIRED, REJECTED] }
+              code: { type: string }
+              message: { type: string }
+              details: { type: object }
+        artifact_sha256: { type: string }
+        policy: { type: object, properties: { id: { type: string }, sha256: { type: string } } }
+        key_id: { type: string }
+        issued_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        deployable: { type: boolean }
+    Paged:
+      type: object
+      properties:
+        data: { type: array, items: {} }
+        meta: { type: object, properties: { page: { type: integer }, per_page: { type: integer }, total: { type: integer } } }
+  responses:
+    Error: { description: Error con código estable, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+paths:
+  /auth/login:
+    post:
+      summary: Iniciar sesión (sesión si viene del frontend; token Bearer con caducidad en otro caso)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [username, password], properties: { username: { type: string }, password: { type: string }, token_name: { type: string } } }
+      responses:
+        "200": { description: Autenticado }
+        "401": { $ref: "#/components/responses/Error" }
+        "423": { description: Cuenta bloqueada temporalmente (ACCOUNT_LOCKED) }
+        "429": { description: Rate limit }
+  /auth/me: { get: { summary: Usuario actual y capacidades, responses: { "200": { description: OK } } } }
+  /auth/logout: { post: { summary: Cerrar sesión o revocar el token, responses: { "200": { description: OK } } } }
+  /dashboard: { get: { summary: KPIs, decisiones por resultado, hallazgos 30 días, análisis recientes, frescura de inteligencia, responses: { "200": { description: OK } } } }
+  /system/health: { get: { summary: Salud de BD, clave de firma, almacenamiento, orquestador, analyzer-api y cola (system.view), responses: { "200": { description: OK } } } }
+  /projects:
+    get: { summary: Proyectos visibles (paginado), responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Paged" } } } } } }
+    post:
+      summary: Crear proyecto (projects.create)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, criticality]
+              properties: { name: { type: string }, description: { type: string }, criticality: { enum: [LOW, MEDIUM, HIGH, CRITICAL] }, default_profile: { type: string } }
+      responses: { "201": { description: Creado }, "403": { $ref: "#/components/responses/Error" } }
+  /projects/{id}:
+    get: { summary: Proyecto, versiones y análisis, parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }], responses: { "200": { description: OK }, "404": { $ref: "#/components/responses/Error" } } }
+  /projects/{id}/versions:
+    post:
+      summary: Registrar artefacto inmutable (ZIP o fichero fuente). Validación ZIP Slip, enlaces, bombas y nombres.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { type: object, required: [version, file], properties: { version: { type: string, pattern: "^[A-Za-z0-9._+-]{1,64}$" }, file: { type: string, format: binary } } }
+      responses: { "201": { description: Artefacto registrado (sha256, inventario, tecnologías) }, "409": { $ref: "#/components/responses/Error" }, "422": { $ref: "#/components/responses/Error" } }
+  /analyses:
+    get: { summary: Historial de análisis, responses: { "200": { description: OK } } }
+    post:
+      summary: Solicitar análisis (202). Admite cabecera Idempotency-Key.
+      parameters: [{ name: Idempotency-Key, in: header, required: false, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/AnalysisRequest" } } } }
+      responses:
+        "202": { description: Aceptado, content: { application/json: { schema: { type: object, properties: { analysis_id: { type: string }, status: { const: QUEUED } } } } } }
+        "422": { $ref: "#/components/responses/Error" }
+  /analyses/{id}: { get: { summary: Estado, jobs, recuento por severidad y decisión vigente, parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK } } } }
+  /analyses/{id}/findings:
+    get:
+      summary: Hallazgos paginados
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: severity, in: query, schema: { enum: [CRITICAL, HIGH, MEDIUM, LOW, INFO] } }
+        - { name: category, in: query, schema: { enum: [sast, sca, secrets, quality, dast] } }
+        - { name: analyzer, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 200 } }
+      responses: { "200": { description: OK } }
+  /analyses/{id}/evaluate: { post: { summary: Emitir (o reemitir) decisión firmada; 409 si el análisis no terminó, parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "201": { description: Decisión, content: { application/json: { schema: { type: object, properties: { data: { $ref: "#/components/schemas/Decision" } } } } } }, "409": { $ref: "#/components/responses/Error" } } } }
+  /analyses/{id}/cancel: { post: { summary: Cancelar análisis en curso, parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK } } } }
+  /analyses/{id}/compare/{other}: { get: { summary: Comparación por huella (nuevos, corregidos, persistentes), parameters: [{ name: id, in: path, required: true, schema: { type: string } }, { name: other, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK } } } }
+  /analyses/{id}/decision: { get: { summary: Decisión vigente, controles e historial, parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK }, "404": { $ref: "#/components/responses/Error" } } } }
+  /analyses/{id}/decision/token: { get: { summary: Autorización firmada (JWS EdDSA, application/jose), parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: JWS compacto } } } }
+  /analyses/{id}/report:
+    get:
+      summary: Reporte con SHA-256 en X-Vulnix-SHA256
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }, { name: format, in: query, schema: { enum: [json, sarif, html, pdf] } }]
+      responses: { "200": { description: Fichero del reporte } }
+  /findings/{id}: { get: { summary: Detalle, evidencias, recomendaciones y excepciones, parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK } } } }
+  /evidences/{id}/download: { get: { summary: Evidencia (redactada) con verificación de integridad, parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK } } } }
+  /authorization/public-key: { get: { summary: Clave pública Ed25519 para verificación fuera de línea, responses: { "200": { description: OK } } } }
+  /authorization/verify:
+    post:
+      summary: Verificación asistida (los pipelines deben verificar fuera de línea con vulnix-verify)
+      requestBody: { content: { application/json: { schema: { type: object, required: [token, artifact_sha256], properties: { token: { type: string }, artifact_sha256: { type: string } } } } } }
+      responses: { "200": { description: Válida }, "422": { description: Inválida (errors) } }
+  /policies:
+    get: { summary: Políticas versionadas, responses: { "200": { description: OK } } }
+    post:
+      summary: Nueva versión de política en borrador (policies.create)
+      requestBody: { content: { application/json: { schema: { type: object, required: [yaml], properties: { yaml: { type: string } } } } } }
+      responses: { "201": { description: Creada (DRAFT) }, "409": { $ref: "#/components/responses/Error" }, "422": { $ref: "#/components/responses/Error" } }
+  /policies/{id}: { get: { summary: Política y fuente YAML, parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK } } } }
+  /policies/{id}/approve: { post: { summary: Aprobar y activar (policies.approve; distinto del autor), parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK }, "403": { $ref: "#/components/responses/Error" } } } }
+  /exceptions:
+    get: { summary: Excepciones (filtro status), responses: { "200": { description: OK } } }
+    post:
+      summary: Solicitud de excepción (PENDING)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [finding_id, kind, reason, expires_at]
+              properties: { finding_id: { type: string }, kind: { enum: [FALSE_POSITIVE, ACCEPTED_RISK] }, reason: { type: string, minLength: 20 }, expires_at: { type: string, format: date-time } }
+      responses: { "201": { description: Creada }, "409": { $ref: "#/components/responses/Error" } }
+  /exceptions/{id}/decision:
+    post:
+      summary: APPROVE | REJECT | REVOKE (exceptions.decide; nunca el solicitante)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, required: [decision, note], properties: { decision: { enum: [APPROVE, REJECT, REVOKE] }, note: { type: string } } } } } }
+      responses: { "200": { description: OK }, "403": { $ref: "#/components/responses/Error" } }
+  /audit-logs: { get: { summary: Auditoría filtrada (audit.view), responses: { "200": { description: OK } } } }
+  /audit-logs/verify: { get: { summary: Verificación de la cadena de hashes, responses: { "200": { description: OK } } } }
+  /users:
+    get: { summary: Usuarios (users.manage), responses: { "200": { description: OK } } }
+    post: { summary: Crear usuario, responses: { "201": { description: Creado } } }
+  /users/{id}: { patch: { summary: Cambiar rol/estado/contraseña (revoca tokens), parameters: [{ name: id, in: path, required: true, schema: { type: string } }], responses: { "200": { description: OK } } } }

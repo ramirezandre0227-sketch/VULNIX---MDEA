@@ -1,0 +1,26 @@
+# VULNIX · Política de producción estricta (manual §7).
+# Los umbrales son iniciales y deben calibrarse con datos reales. Las políticas son inmutables:
+# cualquier cambio exige una versión nueva aprobada por un usuario distinto de su autor.
+policy: web-production-strict
+version: 1.0
+description: Gate de producción. Exige SAST, SCA, secretos, calidad y DAST, pruebas y cobertura.
+required: [sast, sca, secrets, quality, dast]
+analyzers:
+  sast: [vulnix-sast]
+  sca: [vulnix-sca]
+  secrets: [vulnix-secrets]
+  quality: [vulnix-quality]
+  dast: [vulnix-dast]
+optional_analyzers: [semgrep, gitleaks]
+security:
+  max_confirmed_critical: 0
+  max_confirmed_high: 0
+  block_exposed_secrets: true
+  review_uncertain_findings: true
+quality:
+  require_build_pass: true
+  require_tests_pass: true
+  min_line_coverage: 80
+intelligence:
+  max_age_days: 7
+fail_closed: true

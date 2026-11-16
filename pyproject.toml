@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vulnix-engine"
+version = "1.0.0"
+description = "VULNIX: orquestador, sandbox, adaptadores de análisis y API interna de analizadores"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "psycopg[binary]>=3.2,<4",
+  "pydantic>=2.8,<3",
+  "cryptography>=43",
+  "jsonschema>=4.23,<5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "httpx>=0.27"]
+
+[project.scripts]
+vulnix-orchestrator = "vulnix_orchestrator.__main__:main"
+vulnix-intel = "vulnix_orchestrator.intel:main"
+vulnix-verify = "vulnix_core.verify:main"
+
+[tool.setuptools.package-dir]
+vulnix_core = "packages/python-core/vulnix_core"
+vulnix_sandbox = "workers/sandbox/vulnix_sandbox"
+vulnix_adapters = "workers/adapters/vulnix_adapters"
+vulnix_orchestrator = "services/orchestrator/vulnix_orchestrator"
+vulnix_analyzer_api = "services/analyzer-api/vulnix_analyzer_api"
+
+[tool.setuptools]
+packages = ["vulnix_core", "vulnix_sandbox", "vulnix_adapters", "vulnix_adapters.builtin", "vulnix_orchestrator", "vulnix_analyzer_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "db: requiere PostgreSQL (VULNIX_TEST_DB_DSN)",
+  "e2e: requiere la plataforma completa en ejecución (VULNIX_E2E=1)",
+]
